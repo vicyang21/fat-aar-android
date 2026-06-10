@@ -1,0 +1,33 @@
+apply plugin: 'maven-publish'
+
+// 读取版本信息
+def publishGroupId = findProperty('PUBLISH_GROUP_ID') ?: 'com.github.kezong'
+def publishArtifactId = findProperty('PUBLISH_ARTIFACT_ID') ?: 'fat-aar'
+def publishVersion = findProperty('PUBLISH_VERSION') ?: '1.3.9'
+
+// 配置发布到本地 Maven
+afterEvaluate {
+    publishing {
+        publications {
+            fatAar(MavenPublication) {
+                from components.java
+
+                // 可选：添加源码包
+                task sourcesJar(type: Jar) {
+                    archiveClassifier.set('sources')
+                    from sourceSets.main.allSource
+                }
+
+                artifact sourcesJar
+
+                groupId = publishGroupId
+                artifactId = publishArtifactId
+                version = publishVersion
+            }
+        }
+
+        repositories {
+            mavenLocal()
+        }
+    }
+}

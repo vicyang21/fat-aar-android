@@ -288,6 +288,12 @@ class VariantProcessor {
                 def group = artifact.getModuleVersion().id.group.capitalize()
                 def name = artifact.name.capitalize()
                 String taskName = "explode${group}${name}${mVariant.name.capitalize()}"
+
+                // taskName = explodeNewMSdk.MobileSdks.GduLibsGduLibBase-release.aarRelease;
+                // from = E:\code\gdu\newMSdk\MobileSdks\GduLibs\GduLibBase\build\outputs\aar\GduLibBase-release.aar,
+                // zipFolder = E:\code\gdu\newMSdk\MobileSdks\GduWrapper\build\intermediates\exploded-aar\newMSdk.MobileSdks.GduLibs\GduLibBase\\unspecified\release
+                FatUtils.logInfo("taskName = ${taskName}; from = ${artifact.file.absolutePath}, zipFolder = ${zipFolder}")
+
                 Task explodeTask = mProject.tasks.create(taskName, Copy) {
                     from mProject.zipTree(artifact.file.absolutePath)
                     into zipFolder
@@ -299,8 +305,10 @@ class VariantProcessor {
                 }
 
                 if (dependencies.size() == 0) {
+                    FatUtils.logInfo("explodeTask.dependsOn = ${prepareTask.name}")
                     explodeTask.dependsOn(prepareTask)
                 } else {
+                    FatUtils.logInfo("explodeTask.dependsOn = ${dependencies.first().name}")
                     explodeTask.dependsOn(dependencies.first())
                 }
                 Task javacTask = mVersionAdapter.getJavaCompileTask()
@@ -475,8 +483,10 @@ class VariantProcessor {
             mProject.android.sourceSets.each { DefaultAndroidSourceSet sourceSet ->
                 if (sourceSet.name == mVariant.name) {
                     for (archiveLibrary in mAndroidArchiveLibraries) {
-                        FatUtils.logInfo("Merge resource，Library res：${archiveLibrary.resFolder}")
-                        sourceSet.res.srcDir(archiveLibrary.resFolder)
+                        FatUtils.logInfo("Merge resource，exists = ${archiveLibrary.resFolder.exists()}, Library res：${archiveLibrary.resFolder}")
+                        if (archiveLibrary.resFolder != null && archiveLibrary.resFolder.exists()) {
+                            sourceSet.res.srcDir(archiveLibrary.resFolder)
+                        }
                     }
                 }
             }
@@ -527,11 +537,43 @@ class VariantProcessor {
                     if (archiveLibrary.jniFolder != null && archiveLibrary.jniFolder.exists()) {
                         mProject.android.sourceSets.each {
                             if (it.name == mVariant.name) {
+                                FatUtils.logInfo("Merge jniLibs folder：${archiveLibrary.jniFolder}")
                                 it.jniLibs.srcDir(archiveLibrary.jniFolder)
                             }
                         }
                     }
                 }
+            }
+        }
+
+        FatUtils.logInfo("processJniLibs AGPVersion: ${VersionAdapter.AGPVersion}")
+        if (FatUtils.compareVersion(VersionAdapter.AGPVersion, "7.0.0") >= 0) {
+            configureJniLibsCopyTask(mergeJniLibsTask)
+        }
+    }
+
+    private void configureJniLibsCopyTask(TaskProvider mergeJniLibsTask) {
+        String copyTaskName = "copy${mVariant.name.capitalize()}JniLibs"
+        TaskProvider copyTask = mProject.tasks.register(copyTaskName) {
+            dependsOn(mergeJniLibsTask)
+            
+            doLast {
+//                File jniOutputDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_jni_libs/${mVariant.name}")
+                File jniOutputDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_native_libs/${mVariant.name}")
+                jniOutputDir.mkdirs()
+
+                for (archiveLibrary in mAndroidArchiveLibraries) {
+                    if (archiveLibrary.jniFolder != null && archiveLibrary.jniFolder.exists()) {
+                        FatUtils.logInfo("Copying JNI libs from: ${archiveLibrary.jniFolder}")
+                        mProject.copy {
+                            from(archiveLibrary.jniFolder)
+                            into(jniOutputDir)
+                            include '**/*.so'
+                        }
+                    }
+                }
+                
+                FatUtils.logInfo("JNI libs merged to: ${jniOutputDir.absolutePath}")
             }
         }
     }

@@ -9,7 +9,6 @@ import com.android.build.api.transform.TransformInput;
 import com.android.build.api.transform.TransformInvocation;
 import com.android.build.api.transform.TransformOutputProvider;
 import com.android.build.gradle.internal.pipeline.TransformManager;
-import com.google.common.collect.ImmutableSet;
 
 import org.gradle.api.Project;
 
@@ -20,7 +19,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -94,7 +95,7 @@ public class RClassesTransform extends Transform {
 
     @Override
     public Set<? super QualifiedContent.Scope> getScopes() {
-        return ImmutableSet.of(QualifiedContent.Scope.PROJECT);
+        return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(QualifiedContent.Scope.PROJECT)));
     }
 
     @Override
