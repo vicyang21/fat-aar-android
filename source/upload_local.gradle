@@ -4,7 +4,9 @@ apply plugin: 'maven-publish'
 def publishGroupId = findProperty('PUBLISH_GROUP_ID') ?: 'com.github.kezong'
 def publishArtifactId = findProperty('PUBLISH_ARTIFACT_ID') ?: 'fat-aar'
 def publishVersion = findProperty('PUBLISH_VERSION') ?: '1.3.9'
+def isLocal = findProperty('IS_LOCAL') ?: true
 
+println("publish isLocal: $isLocal")
 // 配置发布到本地 Maven
 afterEvaluate {
     publishing {
@@ -27,7 +29,14 @@ afterEvaluate {
         }
 
         repositories {
-            mavenLocal()
+            if (isLocal) {
+                mavenLocal()
+            } else {
+                maven {
+                    url "http://jfrog.gdu-tech.com/artifactory/releases/"
+                    allowInsecureProtocol = true
+                }
+            }
         }
     }
 }

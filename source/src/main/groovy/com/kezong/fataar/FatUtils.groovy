@@ -12,10 +12,12 @@ class FatUtils {
 
     def static logError(def msg) {
         sProject.logger.error("[fat-aar]${msg}")
+        sProject.println("[fat-aar]${msg}")
     }
 
     def static logInfo(def msg) {
-        sProject.logger.info("[fat-aar]${msg}")
+//        sProject.logger.info("[fat-aar]${msg}")
+        sProject.println("[fat-aar]${msg}")
     }
 
     def static logAnytime(def msg) {
