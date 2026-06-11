@@ -531,6 +531,9 @@ class VariantProcessor {
 
         mergeJniLibsTask.configure {
             dependsOn(mExplodeTasks)
+            
+            // 禁用任务缓存和增量构建，确保每次都重新执行
+            outputs.upToDateWhen { false }
 
             doFirst {
                 for (archiveLibrary in mAndroidArchiveLibraries) {
