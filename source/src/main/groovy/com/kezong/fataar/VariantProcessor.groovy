@@ -537,8 +537,9 @@ class VariantProcessor {
                     if (archiveLibrary.jniFolder != null && archiveLibrary.jniFolder.exists()) {
                         mProject.android.sourceSets.each {
                             if (it.name == mVariant.name) {
-                                FatUtils.logInfo("Merge jniLibs folder：${archiveLibrary.jniFolder}")
                                 it.jniLibs.srcDir(archiveLibrary.jniFolder)
+                                FatUtils.logInfo("Merge jniLibs folder：${archiveLibrary.jniFolder}")
+                                FatUtils.logInfo("jniLibs.srcDir：${it.jniLibs.srcDirs}")
                             }
                         }
                     }
@@ -554,12 +555,13 @@ class VariantProcessor {
 
     private void configureJniLibsCopyTask(TaskProvider mergeJniLibsTask) {
         String copyTaskName = "copy${mVariant.name.capitalize()}JniLibs"
+        FatUtils.logInfo("dependsOn mergeJniLibsTask: ${copyTaskName}")
         TaskProvider copyTask = mProject.tasks.register(copyTaskName) {
             dependsOn(mergeJniLibsTask)
-            
             doLast {
-//                File jniOutputDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_jni_libs/${mVariant.name}")
-                File jniOutputDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_native_libs/${mVariant.name}")
+                FatUtils.logInfo("${copyTaskName} doLast exec")
+                // 优先使用merged_jni_libs； merged_native_libs 目录在 merged_jni_libs之后输出
+                File jniOutputDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_jni_libs/${mVariant.name}")
                 jniOutputDir.mkdirs()
 
                 for (archiveLibrary in mAndroidArchiveLibraries) {
@@ -575,6 +577,18 @@ class VariantProcessor {
                 
                 FatUtils.logInfo("JNI libs merged to: ${jniOutputDir.absolutePath}")
             }
+        }
+
+        // 找到后面的任务packageReleaseResources, 必须让copyTask在此前任务之前执行
+        // 只有前面的dependsOn(mergeJniLibsTask)，copyTask是不会执行的。
+        String packageTaskPath = 'package' + mVariant.name.capitalize() + 'Resources'
+        try {
+            TaskProvider packageTask = mProject.tasks.named(packageTaskPath)
+            packageTask.configure {
+                dependsOn(copyTask)
+            }
+        } catch (Exception e) {
+            FatUtils.logInfo("Package task not found, skipping JNI copy task dependency")
         }
     }
 
