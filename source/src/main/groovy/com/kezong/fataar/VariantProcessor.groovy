@@ -506,28 +506,29 @@ class VariantProcessor {
 
     private void configureResourcesCopyTask() {
         String packageTaskName = "package" + mVariant.name.capitalize() + "Resources"
+        String mergeTaskName = "merge" + mVariant.name.capitalize() + "Resources"
         try {
             TaskProvider packageTask = mProject.tasks.named(packageTaskName)
+            TaskProvider mergeTask = mProject.tasks.named(mergeTaskName)
+            mergeTask.configure {
+                outputs.upToDateWhen { false }
+            }
             packageTask.configure {
+                // 有时候mergeReleaseResources在package之前执行，这里需要固定住
+                it.dependsOn(mergeTask)
                 // 禁用任务缓存和增量构建，确保每次都重新执行
                 outputs.upToDateWhen { false }
 
                 doLast {
                     // In AGP 7, packaged_res output is usually here: build/intermediates/packaged_res/[variant]
-                    File packagedResDir = mProject.file("${mProject.buildDir.path}/intermediates/packaged_res")
-                    FatUtils.logInfo("packageResources：packagedResDir.exists = ${packagedResDir.exists()}, packagedResDir = ${packagedResDir.absolutePath}")
-                    packagedResDir.eachDir { variantDir ->
-                        if (variantDir.name == mVariant.name) {
-                            File toFile = new File(packagedResDir, mVariant.name)
-                            for (archiveLibrary in mAndroidArchiveLibraries) {
-                                if (archiveLibrary.resFolder != null && archiveLibrary.resFolder.exists()) {
-                                    FatUtils.logInfo("Manual copy resources from ${archiveLibrary.name} to ${toFile.absolutePath}")
-                                    mProject.copy {
-                                        from archiveLibrary.resFolder
-                                        into toFile
-                                    }
-                                }
-                            }
+                    File mergedResDir = mProject.file("${mProject.buildDir.path}/intermediates/merged_res/${mVariant.name}")
+                    File packagedResDir = mProject.file("${mProject.buildDir.path}/intermediates/packaged_res/${mVariant.name}")
+
+                    FatUtils.logInfo("packageResources：mergedResDir.exists = ${mergedResDir.exists()}, packagedResDir = ${packagedResDir.absolutePath}")
+                    if (mergedResDir.exists()) {
+                        mProject.copy {
+                            from mergedResDir
+                            into packagedResDir
                         }
                     }
                 }
