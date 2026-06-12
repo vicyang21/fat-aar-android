@@ -479,17 +479,61 @@ class VariantProcessor {
 
         resourceGenTask.configure {
             dependsOn(mExplodeTasks)
+            // 禁用任务缓存和增量构建，确保每次都重新执行
+            outputs.upToDateWhen { false }
+        }
 
-            mProject.android.sourceSets.each { DefaultAndroidSourceSet sourceSet ->
-                if (sourceSet.name == mVariant.name) {
-                    for (archiveLibrary in mAndroidArchiveLibraries) {
-                        FatUtils.logInfo("Merge resource，exists = ${archiveLibrary.resFolder.exists()}, Library res：${archiveLibrary.resFolder}")
-                        if (archiveLibrary.resFolder != null && archiveLibrary.resFolder.exists()) {
-                            sourceSet.res.srcDir(archiveLibrary.resFolder)
+        def variantSourceSetNames = mVariant.sourceSets.collect { it.name }
+        mProject.android.sourceSets.each { DefaultAndroidSourceSet sourceSet ->
+            FatUtils.logInfo("processResources； sourceSet.name = ${sourceSet.name}")
+            // 关键：只将资源添加到当前 Variant 特有的 SourceSet 中（如 release 或 debug）
+            // 避免添加到 main 等共享 SourceSet，否则会导致多 Variant 构建时资源重复冲突
+            if (sourceSet.name == mVariant.name) {
+                for (archiveLibrary in mAndroidArchiveLibraries) {
+                    if (!sourceSet.res.srcDirs.contains(archiveLibrary.resFolder)) {
+                        FatUtils.logInfo("Merge resource to ${sourceSet.name}，Library res：${archiveLibrary.resFolder}")
+                        sourceSet.res.srcDir(archiveLibrary.resFolder)
+                    }
+                }
+            }
+        }
+
+        // Fix for AGP 7.0+, manual copy resources to packaged_res
+        if (FatUtils.compareVersion(VersionAdapter.AGPVersion, "7.0.0") >= 0) {
+            configureResourcesCopyTask()
+        }
+    }
+
+    private void configureResourcesCopyTask() {
+        String packageTaskName = "package" + mVariant.name.capitalize() + "Resources"
+        try {
+            TaskProvider packageTask = mProject.tasks.named(packageTaskName)
+            packageTask.configure {
+                // 禁用任务缓存和增量构建，确保每次都重新执行
+                outputs.upToDateWhen { false }
+
+                doLast {
+                    // In AGP 7, packaged_res output is usually here: build/intermediates/packaged_res/[variant]
+                    File packagedResDir = mProject.file("${mProject.buildDir.path}/intermediates/packaged_res")
+                    FatUtils.logInfo("packageResources：packagedResDir.exists = ${packagedResDir.exists()}, packagedResDir = ${packagedResDir.absolutePath}")
+                    packagedResDir.eachDir { variantDir ->
+                        if (variantDir.name == mVariant.name) {
+                            File toFile = new File(packagedResDir, mVariant.name)
+                            for (archiveLibrary in mAndroidArchiveLibraries) {
+                                if (archiveLibrary.resFolder != null && archiveLibrary.resFolder.exists()) {
+                                    FatUtils.logInfo("Manual copy resources from ${archiveLibrary.name} to ${toFile.absolutePath}")
+                                    mProject.copy {
+                                        from archiveLibrary.resFolder
+                                        into toFile
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
+        } catch (Exception e) {
+            FatUtils.logInfo("Failed to configure manual resource copy: ${e.message}")
         }
     }
 
