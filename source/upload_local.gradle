@@ -27,12 +27,12 @@ afterEvaluate {
         }
 
         repositories {
-            mavenLocal()
+//            mavenLocal()
 
-//            maven {
-//                url "http://jfrog.gdu-tech.com/artifactory/releases/"
-//                allowInsecureProtocol = true
-//            }
+            maven {
+                url "http://jfrog.gdu-tech.com/artifactory/releases/"
+                allowInsecureProtocol = true
+            }
         }
     }
 }

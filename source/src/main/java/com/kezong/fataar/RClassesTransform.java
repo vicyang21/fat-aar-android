@@ -133,7 +133,8 @@ public class RClassesTransform extends Transform {
                                 File relative = FilesKt.relativeTo(originalClassFile, directoryFile);
                                 String className = filePathToClassname(relative);
                                 final CtClass ctClass = classPool.get(className);
-                                if (transformTable != null) {
+                                // 避免com.google.protobuf的class被修改
+                                if (transformTable != null && !className.startsWith("com.google")) {
                                     ClassFile classFile = ctClass.getClassFile();
                                     ConstPool constPool = classFile.getConstPool();
                                     constPool.renameClass(transformTable);
