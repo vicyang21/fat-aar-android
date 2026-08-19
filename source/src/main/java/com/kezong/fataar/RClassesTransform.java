@@ -132,13 +132,25 @@ public class RClassesTransform extends Transform {
                             try {
                                 File relative = FilesKt.relativeTo(originalClassFile, directoryFile);
                                 String className = filePathToClassname(relative);
-                                final CtClass ctClass = classPool.get(className);
+
+                                project.getLogger().error("[fat-aar] class path = " + relative.getAbsolutePath() + ", originalClassFile = " + originalClassFile.getAbsolutePath());
                                 // 避免com.google.protobuf的class被修改
-                                if (transformTable != null && !className.startsWith("com.google")) {
+                                // 如果是 google 的类，直接物理拷贝，不经过 Javassist
+                                if (className.startsWith("com.google")) {
+                                    File targetFile = new File(outputDir, relative.getPath());
+                                    targetFile.getParentFile().mkdirs();
+                                    project.getLogger().error("[fat-aar] outputDir targetFile path [protobuf] = " + targetFile.getAbsolutePath());
+                                    Files.copy(originalClassFile.toPath(), targetFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                    return;
+                                }
+
+                                final CtClass ctClass = classPool.get(className);
+                                if (transformTable != null) {
                                     ClassFile classFile = ctClass.getClassFile();
                                     ConstPool constPool = classFile.getConstPool();
                                     constPool.renameClass(transformTable);
                                 }
+                                project.getLogger().error("[fat-aar] outputDir path = " + outputDir.getAbsolutePath());
                                 ctClass.writeFile(outputDir.getAbsolutePath());
                             } catch (CannotCompileException | NotFoundException | IOException e) {
                                 e.printStackTrace();
